@@ -1,0 +1,67 @@
+let
+    // === FUENTE: BaseTicketsTI ===
+    Source = BaseTicketsTI,
+
+    // === SELECCIÓN DE COLUMNAS ===
+    SelectedColumns =
+    Table.SelectColumns(
+        Source,
+        {"Severity"}
+    ),
+
+    // === ELIMINA VALORES NULOS O VACÍOS ===
+    FilteredValidSeverities =
+    Table.SelectRows(
+        SelectedColumns,
+        each
+            [Severity] <> null and
+            Text.Trim(Text.Clean([Severity])) <> ""
+    ),
+
+    // === NORMALIZA LOS TIPOS ===
+    NormalizedSeverities =
+    Table.TransformColumns(
+        FilteredValidSeverities,
+        {
+            {
+                "Severity",
+                each Text.Trim( Text.Clean( _ ) ),
+                type text
+            }
+        }
+    ),    
+
+    // === ELIMINACIÓN DE DUPLICADOS ===
+    DistinctSeverities =
+    Table.Distinct(
+        NormalizedSeverities
+    ),
+   
+    // === ORDENA LOS TIPOS (ESTABILIZA ID) ===
+    SortedSeverities =
+    Table.Sort(
+        DistinctSeverities,
+        {
+            {"Severity", Order.Ascending}
+        }
+    ),
+
+    // === CREA IDENTIFICADOR ÚNICO ===
+    AddedSeverityID =
+    Table.AddIndexColumn(
+        SortedSeverities,
+        "SeverityID",
+        1,
+        1,
+        Int64.Type
+    ),	
+
+    // === REORDENACIÓN FINAL ===
+    ReorderedColumns =
+    Table.ReorderColumns(
+        AddedSeverityID,
+        {"SeverityID", "Severity"}
+    )
+
+in
+    ReorderedColumns

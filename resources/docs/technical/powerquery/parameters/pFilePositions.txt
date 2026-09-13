@@ -1,0 +1,2 @@
+// pFilePositions
+"C:\Users\crislin.nunez\OneDrive - Oficina Gubernamental de Tecnología de la Información y Comunicación (OGTIC)\Documents\Personales\Courses\Power BI\Projects\DatData\03\Tractchun BI\resources\data\raw\Puestos.xlsx" meta [IsParameterQuery=true, Type="Any", IsParameterQueryRequired=true]

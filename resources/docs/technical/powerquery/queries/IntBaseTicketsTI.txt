@@ -1,0 +1,126 @@
+let
+    // === FUENTE: BaseTicketsTI ===
+    Source = BaseTicketsTI,
+
+    // === OBTIENE LA INFORMACIÓN DE LA CATEGORIA ===
+    MergedCategory = 
+    Table.NestedJoin(
+        Source, 
+        {"Category"}, 
+        DimCategory, 
+        {"Category"}, 
+        "DimCategory", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA CATEGORIA ===
+    ExpandedCategory = 
+    Table.ExpandTableColumn(
+        MergedCategory, 
+        "DimCategory", 
+        {"CategoryKey"}, 
+        {"CategoryKey"}
+    ),
+    
+    // === OBTIENE INFORMACIÓN DEL TIPO DE TICKET ===
+    MergedType = 
+    Table.NestedJoin(
+        ExpandedCategory, 
+        {"Type"}, 
+        DimTicketType, 
+        {"Type"}, 
+        "DimTicketType", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE EL TIPO DE TICKET ===
+    ExpandedType = 
+    Table.ExpandTableColumn(
+        MergedType, 
+        "DimTicketType", 
+        {"TypeKey"}, 
+        {"TypeKey"}
+    ),
+    
+    // === OBTIENE INFORMACIÓN DE LA SEVERIDAD ===
+    MergedSeverity = 
+    Table.NestedJoin(
+        ExpandedType, 
+        {"Severity"},
+        DimSeverity, 
+        {"Severity"}, 
+        "DimSeverity", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA SEVERIDAD ===
+    ExpandedSeverity = 
+    Table.ExpandTableColumn(
+        MergedSeverity, 
+        "DimSeverity", 
+        {"SeverityKey"}, 
+        {"SeverityKey"}
+    ),
+    
+    // === OBTIENE INFORMACIÓN DE LA PRIORIDAD ===
+    MergedPriority = 
+    Table.NestedJoin(
+        ExpandedSeverity, 
+        {"Priority"}, 
+        DimPriority, 
+        {"Priority"}, 
+        "DimPriority", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA PRIORIDAD ===
+    ExpandedPriority = 
+    Table.ExpandTableColumn(
+        MergedPriority, 
+        "DimPriority", 
+        {"PriorityKey"}, 
+        {"PriorityKey"}
+    ),
+
+    // === ELIMINA COLUMNAS REEMPLAZADAS POR IDENTIFICADORES ===
+    RemovedColumns =
+    Table.RemoveColumns(
+        ExpandedPriority,
+        {
+            "Category",
+            "Type",
+            "Severity",
+            "Priority"      
+        }
+    ),
+
+    // === RENOMBRADO DE COLUMNAS PARA ESTRUCTURA DE INTEGRACIÓN ===
+    RenamedColumns =
+	Table.RenameColumns(
+		RemovedColumns,
+		{
+			{"EmployeeID", "EmployeeKey"},
+			{"AgentID", "AgentKey"}
+		}
+	),     
+
+    // === REORDENA COLUMNAS ===
+    ReorderedColumns =
+    Table.ReorderColumns(
+        RenamedColumns,
+        {
+            "TicketID",
+            "Date",
+            "EmployeeKey",
+            "AgentKey",
+            "CategoryKey",
+            "TypeKey",
+            "SeverityKey",
+            "PriorityKey",
+            "ResolutionDays",
+            "Satisfaction"
+        }
+    )
+
+in
+    ReorderedColumns

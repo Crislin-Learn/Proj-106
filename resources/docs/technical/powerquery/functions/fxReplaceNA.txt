@@ -1,0 +1,3 @@
+// ReplaceNA
+(input as any) as any =>
+    if input = null or input = "N/A" then 0 else input

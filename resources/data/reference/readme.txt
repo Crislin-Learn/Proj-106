@@ -1,0 +1,1 @@
+Datos auxiliares que no son necesariamente fuentes principales: catálogos, tablas de correspondencia, parámetros, etc.

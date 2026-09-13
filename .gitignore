@@ -1,0 +1,30 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Power BI Desktop temp/lock files
+~$*.pbix
+*.pbix.bak
+[Content_Types].xml
+.pbi/
+
+# Connection info (contains internal URLs/IPs/ports)
+resources/docs/technical/connection/datasource.txt
+!resources/docs/technical/connection/datasource.example.txt
+
+# Raw data files
+resources/data/**/*.xlsx
+
+/*.docx
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Backups temporales
+*.bak
+*.tmp

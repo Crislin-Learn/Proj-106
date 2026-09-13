@@ -1,0 +1,123 @@
+let
+    // === FUENTE: StgAgents ===
+    Source = StgAgents,
+
+    // === FILTRA REGISTROS VÁLIDOS ===
+    FilteredRows =
+    Table.SelectRows(
+        Source,
+        each [AgentID] <> null and [AgentID] <> ""
+    ),
+
+    // === CREACIÓN DE LA FECHA DE NACIMIENTO ===
+    AddedBirthDate =
+    Table.AddColumn(
+        FilteredRows,
+        "BirthDate",
+        each #date( [Year], [Month], [Day] ),
+        type date
+    ),
+
+    // === CÁLCULO DE LA EDAD ===
+    AddedAge =
+    Table.AddColumn(
+        AddedBirthDate,
+        "Age",
+        each
+            let
+                Today = Date.From(DateTime.LocalNow()),
+                BirthDate = [BirthDate],
+                Years =
+                    Date.Year(Today) - Date.Year(BirthDate),
+                BirthdayThisYear =
+                    Date.AddYears(
+                        BirthDate,
+                        Years
+                    )
+            in
+                if BirthdayThisYear > Today
+                then Years - 1
+                else Years,
+        Int64.Type
+    ),
+
+    // === CREACIÓN DEL GRUPO DE EDAD ===
+    AddedAgeGroup =
+    Table.AddColumn(
+        AddedAge,
+        "AgeGroup",
+        each
+            if [Age] < 30 then "20-29"
+            else if [Age] < 40 then "30-39"
+            else "40+",
+        type text
+    ),
+
+    // === CRUCE CON LAS FOTOGRAFÍAS DE LOS AGENTES ===
+    MergedAgentPhotos =
+    Table.NestedJoin(
+        AddedAgeGroup,
+        {"AgentID"},
+        StgAgentPhotos,
+        {"AgentID"},
+        "AgentPhotoData",
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANSIÓN DE FOTOGRAFÍA Y GÉNERO ===
+    ExpandedAgentPhotos =
+    Table.ExpandTableColumn(
+        MergedAgentPhotos,
+        "AgentPhotoData",
+        {
+            "URL Dropbox",
+            "Gender"
+        },
+        {
+            "PhotoURL",
+            "GenderCode"
+        }
+    ), 
+
+    // === CONVERSIÓN DEL IDENTIFICADOR DE GÉNERO A DESCRIPCIÓN ===
+    AddedGender =
+    Table.AddColumn(
+        ExpandedAgentPhotos,
+        "Gender",
+        each
+            if [GenderCode] = "H" then "Male"
+            else if [GenderCode] = "M" then "Female"
+            else null,
+        type text
+    ),
+
+    // === NORMALIZACIÓN DE LA URL PARA POWER BI ===
+    AddedPhotoURL =
+    Table.TransformColumns(
+        AddedGender,
+        {
+            {
+                "PhotoURL",
+                each
+                    if _ <> null
+                    then Text.BeforeDelimiter(_, "?dl=0")
+                    else null,
+                type text
+            }
+        }
+    ),
+
+    // === ELIMINACIÓN DE COMPONENTES DE LA FECHA Y ATRIBUTOS AUXILIARES ===
+    RemovedUnnecessaryColumns =
+        Table.RemoveColumns(
+            AddedPhotoURL,
+            {
+                "Year",
+                "Month",
+                "Day",
+                "GenderCode"
+            }
+        )
+
+in
+    RemovedUnnecessaryColumns

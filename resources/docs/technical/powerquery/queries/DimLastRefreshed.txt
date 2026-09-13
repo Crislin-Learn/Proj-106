@@ -1,0 +1,47 @@
+// ============================================================================================================
+// Last Refresh Table (Power BI / Fabric)
+// Version: 1.0.0
+// Author: Crislin Nuñez
+// Description:
+//   Generates a single-row table capturing the timestamp of the last data refresh.
+//   Timezone is fixed to America/Santo_Domingo (UTC-4).
+//
+// Key Features:
+//   - Returns a datetimezone value adjusted to UTC-4
+//   - Optional metadata fields available as comments (uncomment as needed)
+//   - Safe for Fabric deployments without on-premises gateway
+//
+// Usage:
+//   1. Copy this script into a blank query in Power BI.
+//   2. Use the [datetime] column in a card visual to display last refresh time.
+//   3. To activate optional metadata, uncomment the desired fields and add
+//      a Table.AddColumn step to expose them in the model.
+// ============================================================================================================
+
+let
+    // --- LAST REFRESH ---
+    LastRefreshed = #table(
+        type table [datetime = datetimezone],
+        {{DateTimeZone.SwitchZone(DateTimeZone.FixedLocalNow(), -4)}}
+    )
+
+    // --- OPTIONAL METADATA (uncomment columns as needed) ---
+    // To use: add a new step expanding the desired field as a column
+    //
+    // timezone    = "America/Santo_Domingo"
+    // utc_offset  = "-04:00"
+    // day_of_week = Date.DayOfWeek(DateTimeZone.FixedLocalNow())
+    // day_of_year = Date.DayOfYear(DateTimeZone.FixedLocalNow())
+    // week_number = Date.WeekOfYear(DateTimeZone.FixedLocalNow())
+    // unixtime    = Duration.From(DateTimeZone.FixedLocalNow() - #datetimezone(1970, 1, 1, 0, 0, 0, 0, -4))
+    // abbreviation = "AST"
+    // utc_offset  = "-04:00"
+    // raw_offset  = -14400
+    // dst         = false
+    // dst_offset  = 0
+    // dst_from    = null
+    // dst_until   = null
+    // client_ip   = try Json.Document(Web.Contents("http://api.ipify.org?format=json"))[ip] otherwise "Not available"
+
+in
+    LastRefreshed

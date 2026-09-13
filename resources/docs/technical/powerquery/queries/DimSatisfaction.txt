@@ -1,0 +1,118 @@
+let
+    // === FUENTE: BASE DE TICKETS TI ===
+    Source = BaseTicketsTI,
+
+    // === SELECCIÓN DE LA COLUMNA DE SATISFACCIÓN ===
+    SelectedColumns =
+	Table.SelectColumns(
+		Source,
+		{"Satisfaction"}
+	),
+
+    // === ELIMINACIÓN DE VALORES NULOS ===
+    FilteredValidSatisfaction =
+	Table.SelectRows(
+		SelectedColumns,
+		each [Satisfaction] <> null
+	),
+
+    // === DEFINICIÓN DEL TIPO DE DATO ===
+    ChangedType =
+	Table.TransformColumnTypes(
+		FilteredValidSatisfaction,
+		{
+			{"Satisfaction", Int64.Type}
+		}
+	),
+
+    // === ELIMINACIÓN DE DUPLICADOS ===
+    DistinctSatisfaction =
+	Table.Distinct(
+		ChangedType
+	),
+
+    // === ORDENAMIENTO ASCENDENTE ===
+    SortedSatisfaction =
+	Table.Sort(
+		DistinctSatisfaction,
+		{
+			{"Satisfaction", Order.Ascending}
+		}
+	),
+
+    // === CREACIÓN DE CATEGORÍA DESCRIPTIVA ===
+    AddedCategory =
+	Table.AddColumn(
+		SortedSatisfaction,
+		"Category",
+		each
+			if [Satisfaction] = 1 then "Very Bad"
+			else if [Satisfaction] = 2 then "Bad"
+			else if [Satisfaction] = 3 then "Average"
+			else if [Satisfaction] = 4 then "Good"
+			else if [Satisfaction] = 5 then "Very Good"
+			else null,
+		type text
+	),
+
+    // === CLASIFICACIÓN DEL ESTATUS DE SATISFACCIÓN ===
+    AddedStatus =
+	Table.AddColumn(
+		AddedCategory,
+		"Status",
+		each
+			if [Satisfaction] <= 2 then "Negative"
+			else if [Satisfaction] = 3 then "Neutral"
+			else if [Satisfaction] >= 4 then "Positive"
+			else null,
+		type text
+	),
+
+    // === REPRESENTACIÓN VISUAL MEDIANTE ESTRELLAS ===
+    AddedRating =
+	Table.AddColumn(
+		AddedStatus,
+		"Rating",
+		each
+			if [Satisfaction] <> null
+			then Text.Repeat("★", [Satisfaction])
+			else null,
+		type text
+	),
+
+    // === CREACIÓN DE ORDEN PARA LA REPRESENTACIÓN DE LA SATISFACCIÓN ===
+    AddedSortOrder =
+	Table.AddColumn(
+		AddedRating,
+		"SortOrder",
+		each [Satisfaction],
+		Int64.Type
+	),	
+
+
+    // === CREACIÓN DE IDENTIFICADOR ÚNICO ===
+    AddedSatisfactionID =
+	Table.AddIndexColumn(
+		AddedSortOrder,
+		"SatisfactionID",
+		1,
+		1,
+		Int64.Type
+	),		
+
+    // === REORDENACIÓN FINAL DE COLUMNAS ===
+    ReorderedColumns =
+	Table.ReorderColumns(
+		AddedSatisfactionID,
+		{
+			"SatisfactionID",
+			"Satisfaction",
+			"Rating",
+			"Category",
+			"Status",
+			"SortOrder"
+		}
+	)
+
+in
+    ReorderedColumns

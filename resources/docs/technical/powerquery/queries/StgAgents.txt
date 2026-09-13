@@ -1,0 +1,84 @@
+let
+	// === FUENTE: ARCHIVO EXCEL LOCAL ===
+    Source =
+    Excel.Workbook(
+        File.Contents(
+            pFileAgents
+        ),
+        null,
+        true
+    ), 
+	
+    // === SELECCIÓN DE LA HOJA DE DATOS ===
+    SelectedSheet = Source{[Item=pSheetAgents, Kind="Sheet"]},
+
+    // === EXTRACCIÓN DE LOS DATOS DE LA HOJA ===
+    PositionSheet = SelectedSheet[Data],
+
+	// === REMUEVE FILAS ANTES DE LOS ENCABEZADOS ===
+	RemovedTopRows = 
+	Table.Skip(
+		PositionSheet, 
+		1
+	),
+	
+	// === PROMUEVE LOS ENCABEZADOS ===
+	PromotedHeaders = 
+    Table.PromoteHeaders(
+        RemovedTopRows, 
+        [PromoteAllScalars=true]
+    ),
+
+ 	// === NORMALIZACIÓN DE NOMBRES DE COLUMNAS ===
+	CleanColumnNames =
+    Table.TransformColumnNames(
+        PromotedHeaders,
+        each Text.Trim(_)
+    ),
+
+    // === ELIMINA SOLO COLUMNAS COMPLETAMENTE VACÍAS (SIN NOMBRE Y SIN DATOS) ===
+	RemovedEmptyColumns = 
+    Table.SelectColumns(
+        CleanColumnNames,
+        List.Select(
+            Table.ColumnNames(CleanColumnNames),
+            (colName) =>
+                let
+                    colData = Table.Column(CleanColumnNames, colName),
+                    hasData = List.NonNullCount(colData) > 0,
+                    isGenerated = Text.StartsWith(colName, "Column")
+                in
+                    hasData or not isGenerated
+        )
+    ),
+
+    // === TRADUCCIÓN DE NOMBRES DE COLUMNAS AL INGLÉS ===
+    RenamedColumns =
+    Table.RenameColumns(
+        RemovedEmptyColumns,
+        {
+            {"Día", "Day"},
+            {"Año", "Year"},
+            {"Mes", "Month"},
+            {"email", "eMail"},
+            {"Nombre", "FullName"},            
+            {"ID Agente", "AgentID"}
+        }
+    ),
+
+    // === ASIGNA TIPOS DE DATOS ===
+    ChangedType =
+    Table.TransformColumnTypes(
+        RenamedColumns,
+        {
+            {"Year", Int64.Type},
+            {"Month", Int64.Type},
+            {"Day", Int64.Type},
+            {"AgentID", Int64.Type},
+            {"FullName", type text},
+            {"eMail", type text}
+        }
+    )
+
+in
+    ChangedType

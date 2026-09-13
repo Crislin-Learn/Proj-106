@@ -1,0 +1,31 @@
+let
+    // === FUENTE: StgTicketsTI ===
+    Source = StgTicketsTI,
+
+    // === FILTRA REGISTROS VÁLIDOS ===
+    FilteredRows =
+    Table.SelectRows(
+        Source,
+        each [TicketID] <> null and [TicketID] <> "" 
+    ),
+
+    // === DEFINICIÓN DE TIPOS DE DATOS NORMALIZADOS ===
+    ChangedTypes =
+    Table.TransformColumnTypes(
+        FilteredRows,
+        {
+            {"TicketID", type text},
+            {"Date", type date},
+            {"EmployeeID", Int64.Type},
+            {"AgentID", Int64.Type},
+            {"Category", type text},
+            {"Type", type text},
+            {"Severity", type text},
+            {"Priority", type text},
+            {"ResolutionDuration", Int64.Type},
+            {"Satisfaction", Int64.Type}
+        }
+    )   
+    
+in
+    ChangedTypes

@@ -1,0 +1,15 @@
+// FormatCleanText
+(input as text, optional format as text) as text =>
+    let
+        cleaned = Text.Trim(Text.Clean(input)),
+        formatted =
+            if format = "UPPER" then
+                Text.Upper(cleaned)
+            else if format = "LOWER" then
+                Text.Lower(cleaned)
+            else if format = "PROPER" then
+                Text.Proper(cleaned)
+            else
+                cleaned
+    in
+        formatted

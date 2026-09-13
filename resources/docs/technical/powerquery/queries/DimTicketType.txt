@@ -1,0 +1,67 @@
+let
+    // === FUENTE: BaseTicketsTI ===
+    Source = BaseTicketsTI,
+
+    // === SELECCIÓN DE COLUMNAS ===
+    SelectedColumns =
+    Table.SelectColumns(
+        Source,
+        {"Type"}
+    ),
+
+    // === ELIMINA VALORES NULOS O VACÍOS ===
+    FilteredValidTypes =
+    Table.SelectRows(
+        SelectedColumns,
+        each
+            [Type] <> null and
+            Text.Trim(Text.Clean([Type])) <> ""
+    ),
+
+    // === NORMALIZA LOS TIPOS ===
+    NormalizedTypes =
+    Table.TransformColumns(
+        FilteredValidTypes,
+        {
+            {
+                "Type",
+                each Text.Trim( Text.Clean( _ ) ),
+                type text
+            }
+        }
+    ),    
+
+    // === ELIMINACIÓN DE DUPLICADOS ===
+    DistinctTypes =
+    Table.Distinct(
+        NormalizedTypes
+    ),
+   
+    // === ORDENA LOS TIPOS (ESTABILIZA ID) ===
+    SortedTypes =
+    Table.Sort(
+        DistinctTypes,
+        {
+            {"Type", Order.Ascending}
+        }
+    ),
+
+    // === CREA IDENTIFICADOR ÚNICO ===
+    AddedTypeID =
+    Table.AddIndexColumn(
+        SortedTypes,
+        "TypeID",
+        1,
+        1,
+        Int64.Type
+    ),	
+
+    // === REORDENACIÓN FINAL ===
+    ReorderedColumns =
+    Table.ReorderColumns(
+        AddedTypeID,
+        {"TypeID", "Type"}
+    )
+
+in
+    ReorderedColumns

@@ -1,0 +1,2 @@
+// pTableAgentPhotos
+"FotosAgentes" meta [IsParameterQuery=true, Type="Any", IsParameterQueryRequired=true]

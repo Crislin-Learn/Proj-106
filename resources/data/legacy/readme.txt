@@ -1,0 +1,1 @@
+Fuentes de versiones anteriores que ya no alimentan el dashboard actual, pero que conservas por trazabilidad, comparación o posibilidad de reconstrucción.

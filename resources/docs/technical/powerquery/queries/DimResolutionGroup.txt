@@ -1,0 +1,92 @@
+let
+    // === FUENTE: BaseTicketsTI ===
+    Source = BaseTicketsTI,
+
+    // === SELECCIÓN DE COLUMNAS ===
+    SelectedColumns =
+    Table.SelectColumns(
+        Source,
+        {"ResolutionDuration"}
+    ),
+
+    // === ELIMINA VALORES NULOS O VACÍOS ===
+    FilteredValidResolutionDuration =
+    Table.SelectRows(
+        SelectedColumns,
+        each [ResolutionDuration] <> null
+    ),
+
+    // === DEFINICIÓN DEL TIPO DE DATO ===
+    ChangedType =
+    Table.TransformColumnTypes(
+        FilteredValidResolutionDuration,
+        {
+            {"ResolutionDuration", Int64.Type}
+        }
+    ),  
+
+    // === ELIMINACIÓN DE DUPLICADOS ===
+    DistinctResolutionDuration =
+    Table.Distinct(
+        ChangedType
+    ),
+
+    // === ORDENAMIENTO ASCENDENTE ===
+    SortedResolutionDuration =
+    Table.Sort(
+        DistinctResolutionDuration,
+        {
+            {"ResolutionDuration", Order.Ascending}
+        }
+    ),
+
+    // === CREACIÓN DEL GRUPO DE DÍAS DE RESOLUCIÓN ===
+    AddedGroup =
+    Table.AddColumn(
+        SortedResolutionDuration,
+        "ResolutionDurationGroup",
+        each
+            if [ResolutionDuration] <= 1 then "0-1 Days"
+            else if [ResolutionDuration] <= 5 then "2-5 Days"
+            else if [ResolutionDuration] <= 9 then "6-9 Days"
+            else "10+ Days",
+        type text
+    ),
+
+    // === CREACIÓN DEL ORDEN DE LOS GRUPOS ===
+    AddedGroupSortOrder =
+    Table.AddColumn(
+        AddedGroup,
+        "GroupSortOrder",
+        each
+            if [ResolutionDuration] <= 1 then 1
+            else if [ResolutionDuration] <= 5 then 2
+            else if [ResolutionDuration] <= 9 then 3
+            else 4,
+        Int64.Type
+    ),
+
+    // === CREACIÓN DE IDENTIFICADOR ÚNICO ===
+    AddedResolutionDurationID =
+	Table.AddIndexColumn(
+		AddedGroupSortOrder,
+		"ResolutionDurationID",
+		1,
+		1,
+		Int64.Type
+	),	       
+
+    // === REORDENACIÓN FINAL ===
+    ReorderedColumns =
+    Table.ReorderColumns(
+        AddedResolutionDurationID,
+        {
+            "ResolutionDurationID",
+            "ResolutionDuration",
+            "ResolutionDurationGroup",
+            "GroupSortOrder"
+        }
+    )
+
+in
+    ReorderedColumns

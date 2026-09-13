@@ -1,0 +1,157 @@
+let
+    // === FUENTE: BaseTicketsTI ===
+    Source = BaseTicketsTI,
+
+    // === OBTIENE LA INFORMACIÓN DE LA CATEGORIA ===
+    MergedCategory = 
+    Table.NestedJoin(
+        Source, 
+        {"Category"}, 
+        DimCategory, 
+        {"Category"}, 
+        "DimCategory", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA CATEGORIA ===
+    ExpandedCategory = 
+    Table.ExpandTableColumn(
+        MergedCategory, 
+        "DimCategory", 
+        {"CategoryID"}, 
+        {"CategoryID"}
+    ),
+    
+    // === OBTIENE INFORMACIÓN DEL TIPO DE TICKET ===
+    MergedType = 
+    Table.NestedJoin(
+        ExpandedCategory, 
+        {"Type"}, 
+        DimTicketType, 
+        {"Type"}, 
+        "DimTicketType", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE EL TIPO DE TICKET ===
+    ExpandedType = 
+    Table.ExpandTableColumn(
+        MergedType, 
+        "DimTicketType", 
+        {"TypeID"}, 
+        {"TypeID"}
+    ),
+    
+    // === OBTIENE INFORMACIÓN DE LA SEVERIDAD ===
+    MergedSeverity = 
+    Table.NestedJoin(
+        ExpandedType, 
+        {"Severity"},
+        DimSeverity, 
+        {"Severity"}, 
+        "DimSeverity", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA SEVERIDAD ===
+    ExpandedSeverity = 
+    Table.ExpandTableColumn(
+        MergedSeverity, 
+        "DimSeverity", 
+        {"SeverityID"}, 
+        {"SeverityID"}
+    ),
+    
+    // === OBTIENE INFORMACIÓN DE LA PRIORIDAD ===
+    MergedPriority = 
+    Table.NestedJoin(
+        ExpandedSeverity, 
+        {"Priority"}, 
+        DimPriority, 
+        {"Priority"}, 
+        "DimPriority", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA PRIORIDAD ===
+    ExpandedPriority = 
+    Table.ExpandTableColumn(
+        MergedPriority, 
+        "DimPriority", 
+        {"PriorityID"}, 
+        {"PriorityID"}
+    ),
+
+    // === OBTIENE INFORMACIÓN DE LOS DÍAS DE RESOLUCIÓN ===
+    MergedResolutionDuration = 
+    Table.NestedJoin(
+        ExpandedPriority, 
+        {"ResolutionDuration"}, 
+        DimResolutionGroup, 
+        {"ResolutionDuration"}, 
+        "DimResolutionGroup", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LOS DÍAS DE RESOLUCIÓN ===
+    ExpandedResolutionDuration = 
+    Table.ExpandTableColumn(
+        MergedResolutionDuration, 
+        "DimResolutionGroup", 
+        {"ResolutionDurationID"}, 
+        {"ResolutionDurationID"}
+    ),
+
+    // === OBTIENE INFORMACIÓN DE LA SATISFACCIÓN ===
+    MergedSatisfaction = 
+    Table.NestedJoin(
+       ExpandedResolutionDuration,
+        {"Satisfaction"}, 
+        DimSatisfaction, 
+        {"Satisfaction"}, 
+        "DimSatisfaction", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA SATISFACCIÓN ===
+    ExpandedSatisfaction = 
+    Table.ExpandTableColumn(
+        MergedSatisfaction, 
+        "DimSatisfaction", 
+        {"SatisfactionID"}, 
+        {"SatisfactionID"}
+    ),
+
+    // === ELIMINA COLUMNAS REEMPLAZADAS POR IDENTIFICADORES ===
+    RemovedColumns =
+    Table.RemoveColumns(
+        ExpandedSatisfaction,
+        {
+            "Category",
+            "Type",
+            "Severity",
+            "Priority",
+            "Satisfaction",
+            "ResolutionDuration"    
+        }
+    ),
+
+    // === REORDENA COLUMNAS ===
+    ReorderedColumns =
+    Table.ReorderColumns(
+        RemovedColumns,
+        {
+            "TicketID",
+            "Date",
+            "EmployeeID",
+            "AgentID",
+            "CategoryID",
+            "TypeID",
+            "SeverityID",
+            "PriorityID",
+            "ResolutionDurationID",
+            "SatisfactionID"
+        }
+    )
+in
+    ReorderedColumns

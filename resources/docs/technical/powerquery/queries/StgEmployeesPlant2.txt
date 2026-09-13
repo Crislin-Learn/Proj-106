@@ -1,0 +1,104 @@
+let
+	// === FUENTE: ARCHIVO EXCEL LOCAL ===
+    Source =
+    Excel.Workbook(
+        File.Contents(
+            pFileEmployees
+        ),
+        null,
+        true
+    ), 
+
+    // === SELECCIÓN DE LA HOJA DE DATOS ===
+    SelectedSheet = Source{[Item=pSheetEmployeesPlant2, Kind="Sheet"]},
+
+    // === EXTRACCIÓN DE LOS DATOS DE LA HOJA ===
+    EmployeeSheet = SelectedSheet[Data],
+
+	// === REMUEVE FILAS ANTES DE LOS ENCABEZADOS ===
+	RemovedTopRows = 
+	Table.Skip(
+		EmployeeSheet, 
+		6
+	),
+	
+	// === PROMUEVE LOS ENCABEZADOS ===
+	PromotedHeaders = 
+    Table.PromoteHeaders(
+        RemovedTopRows, 
+        [PromoteAllScalars=true]
+    ),
+
+ 	// === NORMALIZACIÓN DE NOMBRES DE COLUMNAS ===
+	CleanColumnNames =
+    Table.TransformColumnNames(
+        PromotedHeaders,
+        each Text.Trim(_)
+    ),
+
+    // === ELIMINA SOLO COLUMNAS COMPLETAMENTE VACÍAS (SIN NOMBRE Y SIN DATOS) ===
+	RemovedEmptyColumns = 
+    Table.SelectColumns(
+        CleanColumnNames,
+        List.Select(
+            Table.ColumnNames(CleanColumnNames),
+            (colName) =>
+                let
+                    colData = Table.Column(CleanColumnNames, colName),
+                    hasData = List.NonNullCount(colData) > 0,
+                    isGenerated = Text.StartsWith(colName, "Column")
+                in
+                    hasData or not isGenerated
+        )
+    ),
+
+    // === EXTRACCIÓN DEL IDENTIFICADOR DE PLANTA ===
+    PlantNumber =
+    Number.FromText(
+        Text.AfterDelimiter(
+            SelectedSheet[Item],
+            "Planta "
+        )
+    ),
+
+    // === EXTRACCIÓN DEL IDENTIFICADOR DE PLANTA ===
+    AddedPlant =
+    Table.AddColumn(
+        RemovedEmptyColumns,
+        "Planta",
+        each PlantNumber,
+        Int64.Type
+    ),
+
+    // === TRADUCCIÓN DE NOMBRES DE COLUMNAS AL INGLÉS ===
+    RenamedColumns =
+    Table.RenameColumns(
+        AddedPlant,
+        {
+            {"Turno", "Shift"},
+            {"ID Empleado", "EmployeeID"},
+            {"Apellido", "LastName"},
+            {"Nombre", "FirstName"},
+            {"ID Puesto", "PositionID"},
+            {"Email", "eMail"},
+            {"Planta", "Plant"}
+        }
+    ),
+
+	// === DEFINE LOS TIPOS DE DATOS ESTRUCTURALES ===
+	ChangedStructuralColumnTypes =
+	Table.TransformColumnTypes(
+		RenamedColumns,
+		{
+			{"Shift", type text},
+            {"eMail", type text},
+			{"Plant", Int64.Type},
+			{"LastName", type text},
+            {"FirstName", type text},
+			{"PositionID", type text},
+            {"EmployeeID", Int64.Type}
+		}
+	)    
+      
+in
+    ChangedStructuralColumnTypes

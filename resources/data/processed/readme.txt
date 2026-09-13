@@ -1,0 +1,1 @@
+Archivos que son producto de algún procesamiento y que posteriormente consume el modelo.

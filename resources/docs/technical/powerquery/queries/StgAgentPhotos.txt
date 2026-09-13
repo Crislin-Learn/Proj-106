@@ -1,0 +1,60 @@
+let
+	// === FUENTE: ARCHIVO EXCEL LOCAL ===
+    Source =
+    Excel.Workbook(
+        File.Contents(
+            pFileAgentPhotos
+        ),
+        null,
+        true
+    ), 
+	
+    // === SELECCIÓN DE LA HOJA DE DATOS ===
+    SelectedTable = Source{[Item=pTableAgentPhotos, Kind="Table"]}[Data],
+
+ 	// === NORMALIZACIÓN DE NOMBRES DE COLUMNAS ===
+	CleanColumnNames =
+    Table.TransformColumnNames(
+        SelectedTable,
+        each Text.Trim(_)
+    ),
+
+    // === ELIMINA SOLO COLUMNAS COMPLETAMENTE VACÍAS (SIN NOMBRE Y SIN DATOS) ===
+	RemovedEmptyColumns = 
+    Table.SelectColumns(
+        CleanColumnNames,
+        List.Select(
+            Table.ColumnNames(CleanColumnNames),
+            (colName) =>
+                let
+                    colData = Table.Column(CleanColumnNames, colName),
+                    hasData = List.NonNullCount(colData) > 0,
+                    isGenerated = Text.StartsWith(colName, "Column")
+                in
+                    hasData or not isGenerated
+        )
+    ),
+
+    // === TRADUCCIÓN DE NOMBRES DE COLUMNAS AL INGLÉS ===
+    RenamedColumns =
+    Table.RenameColumns(
+        RemovedEmptyColumns,
+        {
+            {"ID Agente", "AgentID"},
+            {"Genero", "Gender"}
+        }
+    ),
+
+    // === ASIGNA TIPOS DE DATOS ===
+    ChangedType =
+    Table.TransformColumnTypes(
+        RenamedColumns,
+        {
+            {"Gender", type text},
+            {"AgentID", Int64.Type}, 
+            {"URL Dropbox", type text} 
+        }
+    )
+
+in
+    ChangedType

@@ -1,0 +1,73 @@
+let
+	// === FUENTE: ARCHIVO EXCEL LOCAL ===
+    Source =
+    Excel.Workbook(
+        File.Contents(
+            pFilePositions
+        ),
+        null,
+        true
+    ), 
+	
+    // === SELECCIÓN DE LA HOJA DE DATOS ===
+    SelectedTable = Source{[Item=pTablePositions, Kind="Table"]},
+
+    // === EXTRACCIÓN DE LOS DATOS DE LA HOJA ===
+    PositionTable = SelectedTable[Data],
+
+    // === ELIMINACIÓN DE ENCABEZADOS REPETIDOS ===
+    FilteredHeaderRows =
+    Table.SelectRows(
+        PositionTable,
+        each [ID Puesto] <> null and [ID Puesto] <> ""
+    ),
+
+ 	// === NORMALIZACIÓN DE NOMBRES DE COLUMNAS ===
+	CleanColumnNames =
+    Table.TransformColumnNames(
+        FilteredHeaderRows,
+        each Text.Trim(_)
+    ),
+
+    // === ELIMINA SOLO COLUMNAS COMPLETAMENTE VACÍAS (SIN NOMBRE Y SIN DATOS) ===
+	RemovedEmptyColumns = 
+    Table.SelectColumns(
+        CleanColumnNames,
+        List.Select(
+            Table.ColumnNames(CleanColumnNames),
+            (colName) =>
+                let
+                    colData = Table.Column(CleanColumnNames, colName),
+                    hasData = List.NonNullCount(colData) > 0,
+                    isGenerated = Text.StartsWith(colName, "Column")
+                in
+                    hasData or not isGenerated
+        )
+    ),
+
+    // === TRADUCCIÓN DE NOMBRES DE COLUMNAS AL INGLÉS ===
+    RenamedColumns =
+    Table.RenameColumns(
+        RemovedEmptyColumns,
+        {
+            {"ID Puesto", "PositionID"},
+            {"Puesto", "Position"},
+            {"Departamento", "Department"},
+            {"Tipo Puesto", "PositionType"}
+        }
+    ),
+
+    // === ASIGNA TIPOS DE DATOS ===
+    ChangedType =
+    Table.TransformColumnTypes(
+        RenamedColumns,
+        {
+            {"PositionID", type text},
+            {"Position", type text},
+            {"Department", type text},
+            {"PositionType", type text}
+        }
+    )
+
+in
+    ChangedType

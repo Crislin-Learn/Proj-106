@@ -1,0 +1,67 @@
+let
+    // === FUENTE: BaseTicketsTI ===
+    Source = BaseTicketsTI,
+
+    // === SELECCIÓN DE COLUMNAS ===
+    SelectedColumns =
+    Table.SelectColumns(
+        Source,
+        {"Priority"}
+    ),
+
+    // === ELIMINA VALORES NULOS O VACÍOS ===
+    FilteredValidPriorities =
+    Table.SelectRows(
+        SelectedColumns,
+        each
+            [Priority] <> null and
+            Text.Trim(Text.Clean([Priority])) <> ""
+    ),
+
+    // === NORMALIZA LOS TIPOS ===
+    NormalizedPriorities =
+    Table.TransformColumns(
+        FilteredValidPriorities,
+        {
+            {
+                "Priority",
+                each Text.Trim( Text.Clean( _ ) ),
+                type text
+            }
+        }
+    ),    
+
+    // === ELIMINACIÓN DE DUPLICADOS ===
+    DistinctPriorities =
+    Table.Distinct(
+        NormalizedPriorities
+    ),
+   
+    // === ORDENA LOS TIPOS (ESTABILIZA ID) ===
+    SortedPriorities =
+    Table.Sort(
+        DistinctPriorities,
+        {
+            {"Priority", Order.Ascending}
+        }
+    ),
+
+    // === CREA IDENTIFICADOR ÚNICO ===
+    AddedPriorityID =
+    Table.AddIndexColumn(
+        SortedPriorities,
+        "PriorityID",
+        1,
+        1,
+        Int64.Type
+    ),	
+
+    // === REORDENACIÓN FINAL ===
+    ReorderedColumns =
+    Table.ReorderColumns(
+        AddedPriorityID,
+        {"PriorityID", "Priority"}
+    )
+
+in
+    ReorderedColumns

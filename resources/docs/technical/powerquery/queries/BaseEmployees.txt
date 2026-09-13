@@ -1,0 +1,88 @@
+let
+    // === FUENTE: TABLAS STAGE ===
+    Source =
+    Table.Combine(
+        {
+            StgEmployeesPlant1,
+            StgEmployeesPlant2
+        }
+    ),
+
+    // === ELIMINACIÓN DE ENCABEZADOS REPETIDOS ===
+    FilteredHeaderRows =
+    Table.SelectRows(
+        Source,
+        each [ID Empleado] <> null and [ID Empleado] <> ""
+    ),
+
+
+    // === RELLENO DE VALORES DE TURNO ===
+    FilledShift =
+    Table.FillDown(
+        Source,
+        {"Shift"}
+    ),
+
+    // === COMBINACIÓN DE APELLIDO Y NOMBRE ===
+    AddedFullName =
+    Table.CombineColumns(
+        FilledShift,
+        {"LastName", "FirstName"},
+        Combiner.CombineTextByDelimiter(
+            " ",
+            QuoteStyle.None
+        ),
+        "FullName"
+    ),
+
+    // === CRUCE CON EL CATÁLOGO DE PUESTOS ===
+    MergedPositions =
+    Table.NestedJoin(
+        AddedFullName,
+        {"PositionID"},
+        StgPositions,
+        {"PositionID"},
+        "PositionData",
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANSIÓN DE INFORMACIÓN DEL PUESTO ===
+    ExpandedPositions =
+    Table.ExpandTableColumn(
+        MergedPositions,
+        "PositionData",
+        {
+            "Position",
+            "Department",
+            "PositionType"
+        },
+        {
+            "Position",
+            "Department",
+            "PositionType"
+        }
+    ),
+
+    // === ELIMINACIÓN DEL IDENTIFICADOR DE PUESTO ===
+    RemovedPositionID =
+    Table.RemoveColumns(
+        ExpandedPositions,
+        {"PositionID"}
+    ),
+
+    // === LIMPIEZA, TRIM Y NORMALIZACIÓN DEL TEXTO ===
+    NormalizedText =
+    Table.TransformColumns(
+        RemovedPositionID,
+        {
+            {"Shift", fxProperCase, type text},
+            {"eMail", fxProperCase, type text},            
+            {"FullName", fxProperCase, type text},
+            {"Position", fxProperCase, type text},
+            {"Department", fxProperCase, type text},
+            {"PositionType", fxProperCase, type text}                
+        }
+    )
+
+in
+    NormalizedText

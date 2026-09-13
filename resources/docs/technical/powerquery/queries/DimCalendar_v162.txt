@@ -1,0 +1,385 @@
+// ============================================================================================================
+// Date Dimension Table Generator (Power BI) - Pro Lite
+// Version: 1.6.2
+// Author: Crislin Nuñez
+// Description:
+//   Generates a simplified calendar table for Power BI, suitable for most reporting dashboards.
+//   Supports semesters, quarters, months, composite month-year labels, and current period flags.
+//
+// Date Range Logic:
+//   MinDate = earliest date found in the fact tables
+//   MaxDate = latest date found in the fact tables
+//   FinalMaxDate = end of the year containing the latest detected date
+//
+// Examples:
+//   If MaxDate = 2025-06-30
+//   Then FinalMaxDate = 2025-12-31
+//
+//   If MaxDate = 2026-05-31
+//   Then FinalMaxDate = 2026-12-31
+//
+// Key Features:
+//   - Numeric and text columns for Year, Semester, Quarter, Month, Day
+//   - Month-Year label optimized for slicers
+//   - Boolean flags for current periods
+//   - Supports ES / US / es-US column naming
+//   - "# Day of Week" values start at 1 (Monday) through 7 (Sunday)
+//   - DateKey (YYYYMMDD format) for keying relationships
+//   - Dynamic date range aligned to the latest year present in the source data
+//
+// Locale Options:
+//   "ES"    = Column names in Spanish + Data in Spanish  (Mes = "Enero")
+//   "US"    = Column names in English  + Data in English (Month Name = "January")
+//   "es-US" = Column names in English  + Data in Spanish (Month Name = "Enero")  ← Recommended for bilingual models
+//
+// Usage:
+//   1. Copy this script into a blank query in Power BI.
+//   2. Set 'Source' to your fact tables containing the date column.
+//   3. Configure 'DateSourceColumn' to point to the date field (e.g., "Fecha").
+//   4. Set 'Locale' to "ES", "US", or "es-US".
+//   5. Mark this table as the official Date Table using the [Fecha]/[Date] column.
+//   6. Use 'Mes Año' / 'Month Year' in slicers to avoid ambiguity across years.
+//   7. Create relationships from fact tables to this calendar to enable Time Intelligence calculations.
+//
+// Notes:
+//   - The calendar range is fully dynamic and driven by the latest date found in the source tables.
+//   - The calendar automatically closes at the end of the latest year containing data.
+//   - No future years are generated unless data for those years exists in the source tables.
+//   - This approach helps prevent confusion in slicers and filters by avoiding unnecessary future periods.
+// ============================================================================================================
+
+
+let
+
+    // --- SOURCE CONFIGURATION ---
+
+    // Replace 'FactTable' with the actual table containing your date column
+    Source =
+    {
+		
+		try FactTable otherwise null
+		
+		
+        // try
+        //     Table.RenameColumns(
+        //         Table.SelectColumns(
+        //             FactTable,
+        //             {"DateKey"}
+        //         ),
+        //         {{"DateKey", "Date"}}
+        //     )
+        // otherwise null
+
+    },
+
+	// Date column name in source table — must match exactly (case-sensitive). e.g. "Date", "Fecha", "OrderDate"
+	DateSourceColumn = "Date",   // ⚠ If not found, calendar defaults to #date(2010,1,1)
+	Locale = "US",            // "ES" = Español completo | "US" = English full | "es-US" = English columns / Spanish data (recommended)
+
+    // --- CURRENT DATE ---
+    Today = DateTime.Date(DateTime.LocalNow()),
+
+    // --- DATA CULTURE (controls the language of generated text data) ---
+    DataCulture = if Locale = "US" then "en-US" else "es-ES",
+
+    // --- VALIDATE SOURCE ---
+    ValidSource =
+	List.Select(
+		Source,
+		each _ <> null and Table.HasColumns(_, DateSourceColumn)
+	),
+
+    // --- EXTRACT ALL DATES ---
+    AllDates =
+	List.Combine(
+		List.Transform(
+			ValidSource,
+			each
+				List.RemoveNulls(
+					Table.Column(
+						Table.TransformColumnTypes(_, {{DateSourceColumn, type date}}),
+						DateSourceColumn
+					)
+				)
+		)
+	),
+
+    // --- DATE RANGE ---
+    MinDate = if List.Count(AllDates) > 0 then List.Min(AllDates) else #date(2010,1,1),
+	MaxDate = if List.Count(AllDates) > 0 then List.Max(AllDates) else Today, 
+
+    // --- FINAL MAX DATE RESOLUTION ---
+	FinalMaxDate = Date.EndOfYear(MaxDate),
+
+    // --- GENERATE CALENDAR ---
+	DatesList =
+    List.Dates(
+        MinDate,
+        Duration.Days(FinalMaxDate - MinDate) + 1,
+        #duration(1, 0, 0, 0)
+    ),
+	
+	DatesTable =
+    Table.FromColumns(
+        {DatesList},
+        type table [Date = date]
+    ),
+
+    // --- YEAR ---
+    AddYear = 
+	Table.AddColumn(
+		DatesTable, 
+		"# Year", 
+		each Date.Year([Date]), 
+		Int64.Type
+	),
+
+    // --- QUARTER ---
+    AddQuarter = 
+	Table.AddColumn(
+		AddYear, 
+		"# Quarter", 
+		each Date.QuarterOfYear([Date]), 
+		Int64.Type
+	),
+
+    AddQuarterName =
+    Table.AddColumn(
+        AddQuarter,
+        "Quarter Name",
+        each if Locale = "US"
+            then "Q" & Text.From(Date.QuarterOfYear([Date]))
+            else "T" & Text.From(Date.QuarterOfYear([Date])),
+        type text
+    ),
+
+    // --- SEMESTER ---
+    AddSemester = 
+	Table.AddColumn(
+		AddQuarterName, 
+		"# Semester", 
+		each if Date.Month([Date]) <= 6 then 1 else 2, 
+		Int64.Type
+	),
+    
+	AddSemesterName = 
+	Table.AddColumn(
+		AddSemester, 
+		"Semester Name", 
+		each "S" & Text.From(Record.Field(_, "# Semester")), 
+		type text
+	),
+
+    // --- MONTH ---
+    AddMonth = Table.AddColumn(AddSemesterName, "# Month", each Date.Month([Date]), Int64.Type),
+
+    AddMonthName =
+    Table.AddColumn(
+        AddMonth,
+        "Month Name",
+        each Text.Proper(Date.ToText([Date], "MMMM", DataCulture)),
+        type text
+    ),
+
+    AddMonthYear = 
+	Table.AddColumn(
+        AddMonthName,
+        "Month Year",
+        each Text.Proper(Date.ToText([Date], "MMMM yyyy", DataCulture)),
+        type text
+    ),
+
+    AddMonthDay = 
+	Table.AddColumn(
+        AddMonthYear,
+        "Month Day",
+        each Text.Proper(Date.ToText([Date], "MMMM dd", DataCulture)),
+        type text
+    ),
+
+    AddShortMonthDay =
+    Table.AddColumn(
+        AddMonthDay,
+        "Short Month Day",
+        each Text.Proper(Date.ToText([Date], "MMM dd", DataCulture)),
+        type text
+    ),    
+
+    AddShortMonthName = 
+	Table.AddColumn(
+        AddShortMonthDay,
+        "Short Month Name",
+        each Text.Start(Text.Proper(Date.ToText([Date], "MMMM", DataCulture)), 3),
+        type text
+    ), 
+
+    // --- DAY LEVEL ---
+    AddDayOfMonth = 
+	Table.AddColumn(
+		AddShortMonthName, 
+		"# Day of Month", 
+		each Date.Day([Date]), 
+		Int64.Type
+	),
+
+    // --- Day of Week: 1 = Monday, 7 = Sunday ---
+    AddDayOfWeek = 
+	Table.AddColumn(
+		AddDayOfMonth, 
+		"# Day of Week", 
+		each Date.DayOfWeek([Date], Day.Monday) + 1, 
+		Int64.Type
+	),
+
+    // --- DAY TYPE ---
+    AddDayType =
+    Table.AddColumn(
+        AddDayOfWeek,
+        "Day Type",
+        each
+            if [#"# Day of Week"] >= 6
+            then "Weekend"
+            else "Weekday",
+        type text
+    ),
+
+	// --- Day of Year ---
+	AddDayOfYear =
+    Table.AddColumn(
+        AddDayType,
+        "# Day of Year",
+        each Date.DayOfYear([Date]),
+        Int64.Type
+    ),
+	
+	// --- Week of Year ---
+	AddWeekOfYear =
+    Table.AddColumn(
+        AddDayOfYear,
+        "# Week of Year",
+        each Date.WeekOfYear([Date], Day.Monday),
+        Int64.Type
+    ),
+
+    AddDayName =
+    Table.AddColumn(
+        AddWeekOfYear,
+        "Day Name",
+        each Text.Proper(Date.ToText([Date], "dddd", DataCulture)),
+        type text
+    ),
+
+    AddShortDayName = Table.AddColumn(
+        AddDayName,
+        "Short Day Name",
+        each Text.Start(Text.Proper(Date.ToText([Date], "dddd", DataCulture)), 3),
+        type text
+    ),
+
+    // --- CURRENT PERIOD FLAGS ---
+    CurrentYear = Date.Year(Today),
+    CurrentMonth = Date.Month(Today),
+    CurrentQuarter = Date.QuarterOfYear(Today),
+    CurrentSemester = if CurrentMonth <= 6 then 1 else 2,
+
+    AddIsCurrentYear = 
+	Table.AddColumn(
+		AddShortDayName, 
+		"Is Current Year", 
+		each Date.Year([Date]) = CurrentYear, 
+		type logical
+	),
+
+    AddIsCurrentSemester =
+    Table.AddColumn(
+        AddIsCurrentYear,
+        "Is Current Semester",
+        each Date.Year([Date]) = CurrentYear and [#"# Semester"] = CurrentSemester,
+        type logical
+    ),
+
+    AddIsCurrentQuarter =
+    Table.AddColumn(
+        AddIsCurrentSemester,
+        "Is Current Quarter",
+        each Date.Year([Date]) = CurrentYear and Date.QuarterOfYear([Date]) = CurrentQuarter,
+        type logical
+    ),
+
+    AddIsCurrentMonth =
+    Table.AddColumn(
+        AddIsCurrentQuarter,
+        "Is Current Month",
+        each Date.Year([Date]) = CurrentYear and Date.Month([Date]) = CurrentMonth,
+        type logical
+    ),
+
+    // --- DATE KEY ---
+    AddDateKey = 
+	Table.AddColumn(
+		AddIsCurrentMonth, 
+		"DateKey", 
+		each Date.ToText([Date], "yyyyMMdd"), 
+		type text
+	),
+
+    // --- SPANISH RENAMING (only when Locale = "ES") ---
+    RenamedColumns = if Locale = "ES" then
+        Table.RenameColumns(
+        AddDateKey,
+        {
+            {"Date", "Fecha"},
+            {"# Year", "# Año"},
+            {"Is Current Year", "Es Año Actual"},
+            {"Is Current Semester", "Es Semestre Actual"},
+            {"Is Current Quarter", "Es Trimestre Actual"},
+            {"Is Current Month", "Es Mes Actual"},
+            {"# Semester", "# Semestre"},
+            {"Semester Name", "Semestre"},
+            {"# Quarter", "# Trimestre"},
+            {"Quarter Name", "Trimestre"},
+            {"# Month", "# Mes"},
+            {"Month Name", "Mes"},
+            {"Month Year", "Mes Año"},
+            {"Month Day", "Mes Día"},
+            {"Short Month Name", "Mes Corto"},
+            {"Short Month Day", "Mes Día Corto"},
+            {"# Day of Month", "# Día"},
+            {"# Day of Week", "# Día de la Semana"},
+            {"Day Type", "Tipo de Día"},
+			{"# Day of Year", "# Día del Año"},
+			{"# Week of Year", "# Semana del Año"},
+            {"Day Name", "Día"},
+            {"Short Day Name", "Día Corto"},
+            {"DateKey", "ClaveFecha"}
+        }
+    ) else AddDateKey,   // "US" and "es-US" keep English column names
+
+
+    // --- COLUMN ORDER ---
+    ReorderedColumns = if Locale = "ES" then
+        Table.ReorderColumns(
+            RenamedColumns,
+            {
+                "ClaveFecha", "Fecha", "# Año",
+                "# Semestre", "Semestre",
+                "# Trimestre", "Trimestre",
+                "# Mes", "Mes", "Mes Año", "Mes Día", "Mes Corto", "Mes Día corto",
+                "# Día", "# Día de la Semana", "Tipo de Día", "# Día del Año", "# Semana del Año", 
+                "Día", "Día Corto", "Es Año Actual", "Es Semestre Actual", "Es Trimestre Actual", "Es Mes Actual"
+            }
+        )
+        else
+            Table.ReorderColumns(
+                RenamedColumns,
+                {
+                    "DateKey", "Date", "# Year",
+                    "# Semester", "Semester Name",
+                    "# Quarter", "Quarter Name",
+                    "# Month", "Month Name", "Month Year", "Month Day", "Short Month Name", "Short Month Day",
+                    "# Day of Month", "# Day of Week", "Day Type", "# Day of Year", "# Week of Year", "Day Name", "Short Day Name",
+                    "Is Current Year", "Is Current Semester", "Is Current Quarter", "Is Current Month"
+                }
+            )
+in
+    ReorderedColumns

@@ -1,0 +1,108 @@
+let
+    // === FUENTE: ARCHIVO EXCEL LOCAL ===
+    Source =
+	Folder.Files(
+		pFolderPath
+	),
+
+    // === FILTRO POR CARPETA Y EXCLUSIÓN DE ARCHIVOS OCULTOS ===
+    FilteredFiles =
+	Table.SelectRows(
+		Source,
+		each
+			[Attributes]?[Hidden]? <> true
+	),
+
+    // === CARGA DEL CONTENIDO BINARIO COMO LIBRO DE EXCEL ===
+    AddedWorkbook =
+	Table.AddColumn(
+		FilteredFiles,
+		"Data",
+		each Excel.Workbook([Content], null, true)
+	),
+
+    // === EXPANSIÓN DE OBJETOS CONTENIDOS EN LOS LIBROS ===
+    ExpandedWorkbook =
+	Table.ExpandTableColumn(
+		AddedWorkbook,
+		"Data",
+		{"Item", "Data", "Kind"}
+	),
+
+    // === SELECCIÓN DE LAS HOJAS QUE CONTIENEN LOS DATOS ===
+    SelectedSheet =
+	Table.SelectRows(
+		ExpandedWorkbook,
+		each [Kind] = "Sheet"
+	),
+
+    // === EXTRACCIÓN DEL CONTENIDO DE CADA HOJA ===
+    SelectedData =
+	Table.SelectColumns(
+		SelectedSheet,
+		{"Name", "Data"}
+	),
+
+    // === COMBINACIÓN DE LOS DATOS DE TODOS LOS ARCHIVOS ===
+    CombinedData =
+	Table.Combine(
+		SelectedData[Data]
+	),
+
+    // === PROMOCIÓN DE LA PRIMERA FILA COMO ENCABEZADOS ===
+    PromotedHeaders =
+	Table.PromoteHeaders(
+		CombinedData,
+		[PromoteAllScalars = true]
+	),
+
+    // === ELIMINACIÓN DE ENCABEZADOS REPETIDOS ===
+    FilteredHeaderRows =
+	Table.SelectRows(
+		PromotedHeaders,
+		each [ID Ticket] <> "ID Ticket"
+	),
+
+    // === NORMALIZACIÓN DE NOMBRES DE COLUMNAS ===
+    CleanColumnNames =
+	Table.TransformColumnNames(
+		FilteredHeaderRows,
+		each Text.Trim(_)
+	),
+
+    // === ELIMINA SOLO COLUMNAS COMPLETAMENTE VACÍAS (SIN NOMBRE Y SIN DATOS) ===
+    RemovedEmptyColumns =
+	Table.SelectColumns(
+		CleanColumnNames,
+		List.Select(
+			Table.ColumnNames(CleanColumnNames),
+			(colName) =>
+				let
+					colData = Table.Column(CleanColumnNames, colName),
+					hasData = List.NonNullCount(colData) > 0,
+					isGenerated = Text.StartsWith(colName, "Column")
+				in
+					hasData or not isGenerated
+		)
+	),
+
+    // === TRADUCCIÓN DE NOMBRES DE COLUMNAS AL INGLÉS ===
+    RenamedColumns =
+	Table.RenameColumns(
+		RemovedEmptyColumns,
+		{
+			{"ID Ticket", "TicketID"},
+			{"Fecha", "Date"},
+			{"Tipo", "Type"},
+			{"Categoría", "Category"},
+			{"ID Empleado", "EmployeeID"},
+			{"ID Agente", "AgentID"},
+			{"Severidad", "Severity"},
+			{"Prioridad", "Priority"},
+			{"Días Resolución", "ResolutionDuration"},
+			{"Satisfacción", "Satisfaction"}
+		}
+	)
+
+in
+    RenamedColumns

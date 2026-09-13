@@ -1,0 +1,143 @@
+DATA CONNECTION TEMPLATE
+Data Source Documentation Framework
+
+PURPOSE
+This template documents the information required to reconstruct
+access to a dashboard's data source(s). It does not contain
+credentials or usernames - those are handled individually with the
+data/system owner. Do not commit to Git or public repositories.
+
+USAGE
+Duplicate this file per dashboard/report. Fill in only the section(s)
+matching the source type(s) in use. Refer to the GLOSSARY section at
+the end for guidance on any field.
+
+========================================================
+SECTION 1 - SHAREPOINT / LOCAL FILE
+========================================================
+
+LOCATION
+(SharePoint / Local)
+
+TYPE
+(Folder / Single File)
+
+SITE URL
+(e.g.: https://domain-my.sharepoint.com/personal/... - SharePoint only)
+
+FOLDER PATH
+(e.g.: Documents/Data/.../ - Folder type only)
+
+FILE
+(file name or path - Single File type only)
+
+SHEET(S)/TAB(S)
+(sheet name; list all relevant tabs if the file has more than one)
+
+AUTHENTICATION
+(Organizational Account / Microsoft Account / Windows / Anonymous)
+
+PRIVACY LEVEL
+(None / Public / Organizational / Private)
+
+NOTES
+(any relevant particularity: requires gateway, fixed column structure, etc.)
+
+========================================================
+SECTION 2 - SQL SERVER
+========================================================
+
+SERVER
+(host or host\instance)
+
+DATABASE
+(database name, e.g.: DB_Payroll)
+
+PORT
+(leave blank for default 1433)
+
+CONNECTION MODE
+(Import / DirectQuery - see GLOSSARY if unsure)
+
+NOTES
+(any relevant particularity: requires gateway, VPN, firewall, whether
+any specific table uses Dual mode, etc.)
+
+========================================================
+SECTION 3 - MYSQL
+========================================================
+
+CONNECTION METHOD
+(Native "MySQL database" / ODBC - see GLOSSARY if unsure)
+
+DSN NAME
+(ODBC method only)
+
+SERVER
+(host or IP)
+
+DATABASE
+(database name, e.g.: db_chatbot)
+
+PORT
+(leave blank for default 3306)
+
+DRIVER
+(name and version, e.g.: MySQL ODBC 8.0 Unicode Driver, or MySQL
+Connector/NET 8.0.x for the native method)
+
+NOTES
+(any relevant particularity: requires gateway, the DSN must exist
+identically configured on both the publishing machine and the
+gateway machine, etc.)
+
+========================================================
+GLOSSARY / QUICK REFERENCE
+========================================================
+
+IMPORT
+Brings the data into Power BI and stores it in the file. Refreshes
+according to the scheduled cadence. The most common mode: better
+report performance, but data is not "live" until the next refresh.
+
+DIRECTQUERY
+Queries the database in real time every time someone opens or
+interacts with the report. Used when data changes very frequently or
+volume is too large to import in full. Can be slower and depends on
+the database being available at all times.
+
+DUAL
+A mixed mode configured after connecting (not at connection time),
+table by table, within Power BI Desktop. Used when a single model
+combines Import and DirectQuery tables. Does not apply unless the
+dashboard is a composite model.
+
+ORGANIZATIONAL ACCOUNT
+Authentication using the organization's Microsoft 365 / Entra ID
+account. The most common choice for SharePoint Online.
+
+MICROSOFT ACCOUNT
+Authentication using a personal (non-organizational) Microsoft account.
+
+WINDOWS
+Authentication typically used when SharePoint or the server is
+on-premises (not cloud-hosted).
+
+ANONYMOUS
+Used when the site or folder allows public access without sign-in.
+
+PRIVACY LEVEL (None / Public / Organizational / Private)
+Not an authentication method - a separate setting that tells Power BI
+how freely this source's data can be combined with other sources
+during processing.
+
+MYSQL - NATIVE METHOD ("MySQL database")
+Power BI's built-in MySQL connector. Requires installing the MySQL
+Connector/NET driver separately (only 8.0.x versions are compatible;
+9.x versions do not work with this connector).
+
+MYSQL - ODBC
+Generic connection through a DSN (Data Source Name) configured with a
+MySQL ODBC driver. The most frequently used method. The DSN must exist
+identically configured on both the publishing/refresh machine and the
+gateway machine, if applicable.
