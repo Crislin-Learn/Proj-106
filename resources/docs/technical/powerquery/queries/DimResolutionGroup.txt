@@ -46,10 +46,10 @@ let
         SortedResolutionDuration,
         "ResolutionDurationGroup",
         each
-            if [ResolutionDuration] <= 1 then "0-1 Days"
-            else if [ResolutionDuration] <= 5 then "2-5 Days"
-            else if [ResolutionDuration] <= 9 then "6-9 Days"
-            else "10+ Days",
+            if [ResolutionDuration] <= 1 then "0-1 días"
+            else if [ResolutionDuration] <= 5 then "2-5 días"
+            else if [ResolutionDuration] <= 9 then "6-9 días"
+            else "10+ días",
         type text
     ),
 

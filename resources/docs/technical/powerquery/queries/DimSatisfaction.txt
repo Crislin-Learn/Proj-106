@@ -1,5 +1,5 @@
 let
-    // === FUENTE: BASE DE TICKETS TI ===
+    // === FUENTE: BaseTicketsTI ===
     Source = BaseTicketsTI,
 
     // === SELECCIÓN DE LA COLUMNA DE SATISFACCIÓN ===
@@ -46,11 +46,11 @@ let
 		SortedSatisfaction,
 		"Category",
 		each
-			if [Satisfaction] = 1 then "Very Bad"
-			else if [Satisfaction] = 2 then "Bad"
-			else if [Satisfaction] = 3 then "Average"
-			else if [Satisfaction] = 4 then "Good"
-			else if [Satisfaction] = 5 then "Very Good"
+			if [Satisfaction] = 1 then "Muy Malo"
+			else if [Satisfaction] = 2 then "Malo"
+			else if [Satisfaction] = 3 then "Regular"
+			else if [Satisfaction] = 4 then "Bueno"
+			else if [Satisfaction] = 5 then "Muy Bueno"
 			else null,
 		type text
 	),
@@ -61,9 +61,9 @@ let
 		AddedCategory,
 		"Status",
 		each
-			if [Satisfaction] <= 2 then "Negative"
+			if [Satisfaction] <= 2 then "Negativo"
 			else if [Satisfaction] = 3 then "Neutral"
-			else if [Satisfaction] >= 4 then "Positive"
+			else if [Satisfaction] >= 4 then "Positivo"
 			else null,
 		type text
 	),

@@ -1,0 +1,681 @@
+// ============================================================================================================
+// Date Dimension Table Generator (Power BI) - CalendarProfile
+// Version: 2.0.0
+// Author: Crislin Nuñez
+//
+// Description:
+//   Generates a dynamic calendar table for Power BI using configurable Calendar Profiles.
+//
+//   CalendarProfile controls which columns are generated:
+//
+//       "Full"     = Complete calendar with all available attributes
+//       "Standard" = Calendar suitable for most dashboards
+//       "Lite"     = Minimal calendar for simple models
+//
+//   The underlying calendar logic remains the same across all profiles.
+//
+// Date Range Logic:
+//   MinDate = earliest date found in the source tables
+//   MaxDate = latest date found in the source tables
+//   FinalMaxDate = end of the year containing MaxDate
+//
+// Locale Options:
+//   "ES"    = Spanish column names + Spanish data
+//   "US"    = English column names + English data
+//   "es-US" = English column names + Spanish data
+//
+// ============================================================================================================
+
+
+let
+
+    // ========================================================================================================
+    // --- CONFIGURATION --------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    // Calendar profile:
+    //   "Full"     = All calendar attributes
+    //   "Standard" = Common dashboard attributes
+    //   "Lite"     = Essential calendar attributes
+    CalendarProfile = "Standard",
+
+    // Source tables containing the date column
+    Source =
+    {
+        try FactTicketsTI otherwise null
+		
+		// try
+        //     Table.RenameColumns(
+        //         Table.SelectColumns(
+        //             FactTable,
+        //             {"DateKey"}
+        //         ),
+        //         {{"DateKey", "Date"}}
+        //     )
+        // otherwise null
+    },
+
+    // Date column name in source tables
+    DateSourceColumn = "Date",
+
+    // Locale:
+    //   "ES"    = Spanish columns + Spanish data
+    //   "US"    = English columns + English data
+    //   "es-US" = English columns + Spanish data
+    Locale = "es-US",
+
+
+    // ========================================================================================================
+    // --- CURRENT DATE ---------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    Today = DateTime.Date(DateTime.LocalNow()),
+
+
+    // ========================================================================================================
+    // --- DATA CULTURE ---------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    DataCulture =
+        if Locale = "US"
+        then "en-US"
+        else "es-ES",
+
+
+    // ========================================================================================================
+    // --- VALIDATE PROFILE -----------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    ValidProfiles = {"Full", "Standard", "Lite"},
+
+    SelectedProfile =
+        if List.Contains(ValidProfiles, CalendarProfile)
+        then CalendarProfile
+        else "Full",
+
+
+    // ========================================================================================================
+    // --- VALIDATE SOURCE ------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    ValidSource =
+        List.Select(
+            Source,
+            each
+                _ <> null
+                and Table.HasColumns(_, DateSourceColumn)
+        ),
+
+
+    // ========================================================================================================
+    // --- EXTRACT ALL DATES ----------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AllDates =
+        List.Combine(
+            List.Transform(
+                ValidSource,
+                each
+                    List.RemoveNulls(
+                        Table.Column(
+                            Table.TransformColumnTypes(
+                                _,
+                                {{DateSourceColumn, type date}}
+                            ),
+                            DateSourceColumn
+                        )
+                    )
+            )
+        ),
+
+
+    // ========================================================================================================
+    // --- DATE RANGE ------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    MinDate =
+        if List.Count(AllDates) > 0
+        then List.Min(AllDates)
+        else #date(2010, 1, 1),
+
+    MaxDate =
+        if List.Count(AllDates) > 0
+        then List.Max(AllDates)
+        else Today,
+
+    FinalMaxDate =
+        Date.EndOfYear(MaxDate),
+
+
+    // ========================================================================================================
+    // --- GENERATE CALENDAR ----------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    DatesList =
+        List.Dates(
+            MinDate,
+            Duration.Days(FinalMaxDate - MinDate) + 1,
+            #duration(1, 0, 0, 0)
+        ),
+
+    DatesTable =
+        Table.FromColumns(
+            {DatesList},
+            type table [Date = date]
+        ),
+
+
+    // ========================================================================================================
+    // --- YEAR ------------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddYear =
+        Table.AddColumn(
+            DatesTable,
+            "# Year",
+            each Date.Year([Date]),
+            Int64.Type
+        ),
+
+
+    // ========================================================================================================
+    // --- QUARTER ---------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddQuarter =
+        Table.AddColumn(
+            AddYear,
+            "# Quarter",
+            each Date.QuarterOfYear([Date]),
+            Int64.Type
+        ),
+
+    AddQuarterName =
+        Table.AddColumn(
+            AddQuarter,
+            "Quarter Name",
+            each
+                if Locale = "US"
+                then "Q" & Text.From(Date.QuarterOfYear([Date]))
+                else "T" & Text.From(Date.QuarterOfYear([Date])),
+            type text
+        ),
+
+
+    // ========================================================================================================
+    // --- SEMESTER --------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddSemester =
+        Table.AddColumn(
+            AddQuarterName,
+            "# Semester",
+            each
+                if Date.Month([Date]) <= 6
+                then 1
+                else 2,
+            Int64.Type
+        ),
+
+    AddSemesterName =
+        Table.AddColumn(
+            AddSemester,
+            "Semester Name",
+            each
+                "S" & Text.From(Record.Field(_, "# Semester")),
+            type text
+        ),
+
+
+    // ========================================================================================================
+    // --- MONTH ------------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddMonth =
+        Table.AddColumn(
+            AddSemesterName,
+            "# Month",
+            each Date.Month([Date]),
+            Int64.Type
+        ),
+
+    AddMonthName =
+        Table.AddColumn(
+            AddMonth,
+            "Month Name",
+            each
+                Text.Proper(
+                    Date.ToText(
+                        [Date],
+                        "MMMM",
+                        DataCulture
+                    )
+                ),
+            type text
+        ),
+
+    AddMonthYear =
+        Table.AddColumn(
+            AddMonthName,
+            "Month Year",
+            each
+                Text.Proper(
+                    Date.ToText(
+                        [Date],
+                        "MMMM yyyy",
+                        DataCulture
+                    )
+                ),
+            type text
+        ),
+
+    AddMonthDay =
+        Table.AddColumn(
+            AddMonthYear,
+            "Month Day",
+            each
+                Text.Proper(
+                    Date.ToText(
+                        [Date],
+                        "MMMM dd",
+                        DataCulture
+                    )
+                ),
+            type text
+        ),
+
+    AddShortMonthName =
+        Table.AddColumn(
+            AddMonthDay,
+            "Short Month Name",
+            each
+                Text.Start(
+                    Text.Proper(
+                        Date.ToText(
+                            [Date],
+                            "MMMM",
+                            DataCulture
+                        )
+                    ),
+                    3
+                ),
+            type text
+        ),
+
+    AddShortMonthDay =
+        Table.AddColumn(
+            AddShortMonthName,
+            "Short Month Day",
+            each
+                Text.Proper(
+                    Date.ToText(
+                        [Date],
+                        "MMM dd",
+                        DataCulture
+                    )
+                ),
+            type text
+        ),
+
+
+    // ========================================================================================================
+    // --- DAY -------------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddDayOfMonth =
+        Table.AddColumn(
+            AddShortMonthDay,
+            "# Day of Month",
+            each Date.Day([Date]),
+            Int64.Type
+        ),
+
+    AddDayOfWeek =
+        Table.AddColumn(
+            AddDayOfMonth,
+            "# Day of Week",
+            each
+                Date.DayOfWeek(
+                    [Date],
+                    Day.Monday
+                ) + 1,
+            Int64.Type
+        ),
+
+	AddDayType =
+    Table.AddColumn(
+        AddDayOfWeek,
+        "Day Type",
+        each
+            if Locale = "US" then
+                if [#"# Day of Week"] >= 6
+                then "Weekend"
+                else "Weekday"
+            else
+                if [#"# Day of Week"] >= 6
+                then "Fin de Semana"
+                else "Día Laborable",
+        type text
+    ),
+
+    AddDayOfYear =
+        Table.AddColumn(
+            AddDayType,
+            "# Day of Year",
+            each Date.DayOfYear([Date]),
+            Int64.Type
+        ),
+
+    AddWeekOfYear =
+        Table.AddColumn(
+            AddDayOfYear,
+            "# Week of Year",
+            each
+                Date.WeekOfYear(
+                    [Date],
+                    Day.Monday
+                ),
+            Int64.Type
+        ),
+
+    AddDayName =
+        Table.AddColumn(
+            AddWeekOfYear,
+            "Day Name",
+            each
+                Text.Proper(
+                    Date.ToText(
+                        [Date],
+                        "dddd",
+                        DataCulture
+                    )
+                ),
+            type text
+        ),
+
+    AddShortDayName =
+        Table.AddColumn(
+            AddDayName,
+            "Short Day Name",
+            each
+                Text.Start(
+                    Text.Proper(
+                        Date.ToText(
+                            [Date],
+                            "dddd",
+                            DataCulture
+                        )
+                    ),
+                    3
+                ),
+            type text
+        ),
+
+
+    // ========================================================================================================
+    // --- CURRENT PERIOD VALUES ------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    CurrentYear =
+        Date.Year(Today),
+
+    CurrentMonth =
+        Date.Month(Today),
+
+    CurrentQuarter =
+        Date.QuarterOfYear(Today),
+
+    CurrentSemester =
+        if CurrentMonth <= 6
+        then 1
+        else 2,
+
+
+    // ========================================================================================================
+    // --- CURRENT PERIOD FLAGS --------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddIsCurrentYear =
+        Table.AddColumn(
+            AddShortDayName,
+            "Is Current Year",
+            each
+                Date.Year([Date]) = CurrentYear,
+            type logical
+        ),
+
+    AddIsCurrentSemester =
+        Table.AddColumn(
+            AddIsCurrentYear,
+            "Is Current Semester",
+            each
+                Date.Year([Date]) = CurrentYear
+                and [#"# Semester"] = CurrentSemester,
+            type logical
+        ),
+
+    AddIsCurrentQuarter =
+        Table.AddColumn(
+            AddIsCurrentSemester,
+            "Is Current Quarter",
+            each
+                Date.Year([Date]) = CurrentYear
+                and Date.QuarterOfYear([Date]) = CurrentQuarter,
+            type logical
+        ),
+
+    AddIsCurrentMonth =
+        Table.AddColumn(
+            AddIsCurrentQuarter,
+            "Is Current Month",
+            each
+                Date.Year([Date]) = CurrentYear
+                and Date.Month([Date]) = CurrentMonth,
+            type logical
+        ),
+
+
+    // ========================================================================================================
+    // --- DATE KEY --------------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    AddDateKey =
+        Table.AddColumn(
+            AddIsCurrentMonth,
+            "DateKey",
+            each
+                Date.ToText(
+                    [Date],
+                    "yyyyMMdd"
+                ),
+            type text
+        ),
+
+
+    // ========================================================================================================
+    // --- PROFILE COLUMN DEFINITIONS --------------------------------------------------------------------------
+    // ========================================================================================================
+
+    FullColumns =
+    {
+        "DateKey",
+        "Date",
+        "# Year",
+        "# Semester",
+        "Semester Name",
+        "# Quarter",
+        "Quarter Name",
+        "# Month",
+        "Month Name",
+        "Month Year",
+        "Month Day",
+        "Short Month Name",
+        "Short Month Day",
+        "# Day of Month",
+        "# Day of Week",
+        "Day Type",
+        "# Day of Year",
+        "# Week of Year",
+        "Day Name",
+        "Short Day Name",
+        "Is Current Year",
+        "Is Current Semester",
+        "Is Current Quarter",
+        "Is Current Month"
+    },
+
+    StandardColumns =
+    {
+		"DateKey",
+		"Date",
+		"# Year",
+		"# Quarter",
+		"Quarter Name",
+		"# Month",
+		"Month Name",
+		"Short Month Name",
+        "Short Month Day",
+		"Month Year",
+		"# Week of Year",
+		"# Day of Week",
+		"Day Type",
+		"Day Name",
+		"Short Day Name",
+		"Is Current Year",
+		"Is Current Quarter",
+		"Is Current Month"
+    },
+
+    LiteColumns =
+    {
+		"Date",
+		"# Year",
+		"# Month",
+		"Month Name",
+		"Short Month Name",
+		"Month Year",
+		"# Day of Week",
+		"Day Name",
+		"Short Day Name",
+		"Day Type"
+    },
+
+
+    // ========================================================================================================
+    // --- SELECT ACTIVE PROFILE --------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    ProfileColumns =
+        if SelectedProfile = "Full"
+        then FullColumns
+        else if SelectedProfile = "Standard"
+        then StandardColumns
+        else LiteColumns,
+
+
+    // ========================================================================================================
+    // --- SELECT COLUMNS --------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    SelectedColumns =
+        Table.SelectColumns(
+            AddDateKey,
+            ProfileColumns
+        ),
+
+
+    // ========================================================================================================
+    // --- SPANISH RENAMING ------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    RenamedColumns =
+        if Locale = "ES"
+        then
+            Table.RenameColumns(
+                SelectedColumns,
+                List.Select(
+                    {
+                        {"Date", "Fecha"},
+                        {"# Year", "# Año"},
+                        {"Is Current Year", "Es Año Actual"},
+                        {"Is Current Semester", "Es Semestre Actual"},
+                        {"Is Current Quarter", "Es Trimestre Actual"},
+                        {"Is Current Month", "Es Mes Actual"},
+                        {"# Semester", "# Semestre"},
+                        {"Semester Name", "Semestre"},
+                        {"# Quarter", "# Trimestre"},
+                        {"Quarter Name", "Trimestre"},
+                        {"# Month", "# Mes"},
+                        {"Month Name", "Mes"},
+                        {"Month Year", "Mes Año"},
+                        {"Month Day", "Mes Día"},
+                        {"Short Month Name", "Mes Corto"},
+                        {"Short Month Day", "Mes Día Corto"},
+                        {"# Day of Month", "# Día"},
+                        {"# Day of Week", "# Día de la Semana"},
+                        {"Day Type", "Tipo de Día"},
+                        {"# Day of Year", "# Día del Año"},
+                        {"# Week of Year", "# Semana del Año"},
+                        {"Day Name", "Día"},
+                        {"Short Day Name", "Día Corto"},
+                        {"DateKey", "ClaveFecha"}
+                    },
+                    each List.Contains(
+                        Table.ColumnNames(SelectedColumns),
+                        _{0}
+                    )
+                )
+            )
+        else
+            SelectedColumns,
+
+
+    // ========================================================================================================
+    // --- COLUMN ORDER ----------------------------------------------------------------------------------------
+    // ========================================================================================================
+
+    FinalColumns =
+        if Locale = "ES"
+        then
+            List.Transform(
+                ProfileColumns,
+                each
+                    if _ = "Date" then "Fecha"
+                    else if _ = "# Year" then "# Año"
+                    else if _ = "# Semester" then "# Semestre"
+                    else if _ = "Semester Name" then "Semestre"
+                    else if _ = "# Quarter" then "# Trimestre"
+                    else if _ = "Quarter Name" then "Trimestre"
+                    else if _ = "# Month" then "# Mes"
+                    else if _ = "Month Name" then "Mes"
+                    else if _ = "Month Year" then "Mes Año"
+                    else if _ = "Month Day" then "Mes Día"
+                    else if _ = "Short Month Name" then "Mes Corto"
+                    else if _ = "Short Month Day" then "Mes Día Corto"
+                    else if _ = "# Day of Month" then "# Día"
+                    else if _ = "# Day of Week" then "# Día de la Semana"
+                    else if _ = "Day Type" then "Tipo de Día"
+                    else if _ = "# Day of Year" then "# Día del Año"
+                    else if _ = "# Week of Year" then "# Semana del Año"
+                    else if _ = "Day Name" then "Día"
+                    else if _ = "Short Day Name" then "Día Corto"
+                    else if _ = "Is Current Year" then "Es Año Actual"
+                    else if _ = "Is Current Semester" then "Es Semestre Actual"
+                    else if _ = "Is Current Quarter" then "Es Trimestre Actual"
+                    else if _ = "Is Current Month" then "Es Mes Actual"
+                    else if _ = "DateKey" then "ClaveFecha"
+                    else _
+            )
+        else
+            ProfileColumns,
+
+
+    ReorderedColumns =
+        Table.ReorderColumns(
+            RenamedColumns,
+            FinalColumns
+        )
+
+in
+
+    ReorderedColumns

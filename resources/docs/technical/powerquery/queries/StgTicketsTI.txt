@@ -2,7 +2,7 @@ let
     // === FUENTE: ARCHIVO EXCEL LOCAL ===
     Source =
 	Folder.Files(
-		pFolderPath
+		pFolderTickets
 	),
 
     // === FILTRO POR CARPETA Y EXCLUSIÓN DE ARCHIVOS OCULTOS ===

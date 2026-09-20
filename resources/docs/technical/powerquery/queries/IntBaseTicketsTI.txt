@@ -18,8 +18,8 @@ let
     Table.ExpandTableColumn(
         MergedCategory, 
         "DimCategory", 
-        {"CategoryKey"}, 
-        {"CategoryKey"}
+        {"CategoryID"}, 
+        {"CategoryID"}
     ),
     
     // === OBTIENE INFORMACIÓN DEL TIPO DE TICKET ===
@@ -38,8 +38,8 @@ let
     Table.ExpandTableColumn(
         MergedType, 
         "DimTicketType", 
-        {"TypeKey"}, 
-        {"TypeKey"}
+        {"TypeID"}, 
+        {"TypeID"}
     ),
     
     // === OBTIENE INFORMACIÓN DE LA SEVERIDAD ===
@@ -58,8 +58,8 @@ let
     Table.ExpandTableColumn(
         MergedSeverity, 
         "DimSeverity", 
-        {"SeverityKey"}, 
-        {"SeverityKey"}
+        {"SeverityID"}, 
+        {"SeverityID"}
     ),
     
     // === OBTIENE INFORMACIÓN DE LA PRIORIDAD ===
@@ -78,49 +78,80 @@ let
     Table.ExpandTableColumn(
         MergedPriority, 
         "DimPriority", 
-        {"PriorityKey"}, 
-        {"PriorityKey"}
+        {"PriorityID"}, 
+        {"PriorityID"}
+    ),
+
+    // === OBTIENE INFORMACIÓN DE LOS DÍAS DE RESOLUCIÓN ===
+    MergedResolutionDuration = 
+    Table.NestedJoin(
+        ExpandedPriority, 
+        {"ResolutionDuration"}, 
+        DimResolutionGroup, 
+        {"ResolutionDuration"}, 
+        "DimResolutionGroup", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LOS DÍAS DE RESOLUCIÓN ===
+    ExpandedResolutionDuration = 
+    Table.ExpandTableColumn(
+        MergedResolutionDuration, 
+        "DimResolutionGroup", 
+        {"ResolutionDurationID"}, 
+        {"ResolutionDurationID"}
+    ),
+
+    // === OBTIENE INFORMACIÓN DE LA SATISFACCIÓN ===
+    MergedSatisfaction = 
+    Table.NestedJoin(
+       ExpandedResolutionDuration,
+        {"Satisfaction"}, 
+        DimSatisfaction, 
+        {"Satisfaction"}, 
+        "DimSatisfaction", 
+        JoinKind.LeftOuter
+    ),
+
+    // === EXPANDE LA SATISFACCIÓN ===
+    ExpandedSatisfaction = 
+    Table.ExpandTableColumn(
+        MergedSatisfaction, 
+        "DimSatisfaction", 
+        {"SatisfactionID"}, 
+        {"SatisfactionID"}
     ),
 
     // === ELIMINA COLUMNAS REEMPLAZADAS POR IDENTIFICADORES ===
     RemovedColumns =
     Table.RemoveColumns(
-        ExpandedPriority,
+        ExpandedSatisfaction,
         {
             "Category",
             "Type",
             "Severity",
-            "Priority"      
+            "Priority",
+            "Satisfaction",
+            "ResolutionDuration"    
         }
     ),
-
-    // === RENOMBRADO DE COLUMNAS PARA ESTRUCTURA DE INTEGRACIÓN ===
-    RenamedColumns =
-	Table.RenameColumns(
-		RemovedColumns,
-		{
-			{"EmployeeID", "EmployeeKey"},
-			{"AgentID", "AgentKey"}
-		}
-	),     
 
     // === REORDENA COLUMNAS ===
     ReorderedColumns =
     Table.ReorderColumns(
-        RenamedColumns,
+        RemovedColumns,
         {
             "TicketID",
             "Date",
-            "EmployeeKey",
-            "AgentKey",
-            "CategoryKey",
-            "TypeKey",
-            "SeverityKey",
-            "PriorityKey",
-            "ResolutionDays",
-            "Satisfaction"
+            "EmployeeID",
+            "AgentID",
+            "CategoryID",
+            "TypeID",
+            "SeverityID",
+            "PriorityID",
+            "ResolutionDurationID",
+            "SatisfactionID"
         }
     )
-
 in
     ReorderedColumns

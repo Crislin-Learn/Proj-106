@@ -36,7 +36,7 @@ let
     ),
 
     // === CRUCE CON EL CATÁLOGO DE PUESTOS ===
-    MergedPositions =
+    MergedPosition =
     Table.NestedJoin(
         AddedFullName,
         {"PositionID"},
@@ -47,9 +47,9 @@ let
     ),
 
     // === EXPANSIÓN DE INFORMACIÓN DEL PUESTO ===
-    ExpandedPositions =
+    ExpandedPosition =
     Table.ExpandTableColumn(
-        MergedPositions,
+        MergedPosition,
         "PositionData",
         {
             "Position",
@@ -66,7 +66,7 @@ let
     // === ELIMINACIÓN DEL IDENTIFICADOR DE PUESTO ===
     RemovedPositionID =
     Table.RemoveColumns(
-        ExpandedPositions,
+        ExpandedPosition,
         {"PositionID"}
     ),
 
@@ -76,7 +76,7 @@ let
         RemovedPositionID,
         {
             {"Shift", fxProperCase, type text},
-            {"eMail", fxProperCase, type text},            
+            {"eMail", fxNormalizeEmail, type text},            
             {"FullName", fxProperCase, type text},
             {"Position", fxProperCase, type text},
             {"Department", fxProperCase, type text},

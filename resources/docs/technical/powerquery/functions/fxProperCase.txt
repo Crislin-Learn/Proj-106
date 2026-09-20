@@ -1,66 +1,75 @@
 let
+    // fxProperCase
     Source = (text as nullable text) as nullable text =>
-	let
-		// ============================================================
-		// VALIDACIÓN DEL VALOR
-		// ============================================================
+    let
+        // ============================================================
+        // VALIDACIÓN DEL VALOR
+        // ============================================================
 
-		// === RETORNA NULO CUANDO EL VALOR ES NULO ===
-		Result =
-			if text = null then
-				null
-			else
-				let
-					// === DEFINE PALABRAS QUE DEBEN PERMANECER EN MINÚSCULA ===
-					LowercaseWords =
-						{
-							"a",
-							"al",
-							"con",
-							"de",
-							"del",
-							"el",
-							"en",
-							"la",
-							"las",
-							"los",
-							"para",
-							"por",
-							"y"
-						},
+        // === RETORNA NULO CUANDO EL VALOR ES NULO ===
+        Result =
+            if text = null then
+                null
+            else
+                let
+                    // === DEFINE PALABRAS QUE DEBEN PERMANECER EN MINÚSCULA ===
+                    LowercaseWords =
+                        {
+                            "a",
+                            "al",
+                            "con",
+                            "de",
+                            "del",
+                            "el",
+                            "en",
+                            "la",
+                            "las",
+                            "los",
+                            "para",
+                            "por",
+                            "y"
+                        },
 
-					// === CONVIERTE CADA PALABRA A FORMATO TÍTULO ===
-					Words =
-						Text.Split(
-							Text.Proper(text),
-							" "
-						),
+                    // === CONVIERTE A FORMATO TÍTULO Y DESCARTA ESPACIOS SOBRANTES ===
+                    Words =
+                        List.Select(
+                            Text.Split(
+                                Text.Proper(
+                                    Text.Clean(text)
+                                ),
+                                " "
+                            ),
+                            each _ <> ""
+                        ),
 
-					// === NORMALIZA LAS PALABRAS EXCEPTO LA PRIMERA ===
-					NormalizedWords =
-						List.Transform(
-							List.Positions(Words),
-							(Position) =>
-								if Position > 0
-									and List.Contains(
-										LowercaseWords,
-										Text.Lower(Words{Position})
-									)
-								then
-									Text.Lower(Words{Position})
-								else
-									Words{Position}
-						),
+                    // === NORMALIZA LAS PALABRAS EXCEPTO LA PRIMERA ===
+                    NormalizedWords =
+                        List.Transform(
+                            List.Positions(Words),
+                            (Position) =>
+                                if Position > 0
+                                    and List.Contains(
+                                        LowercaseWords,
+                                        Text.Lower(Words{Position})
+                                    )
+                                then
+                                    Text.Lower(Words{Position})
+                                else
+                                    Words{Position}
+                        ),
 
-					// === RECONSTRUYE EL TEXTO NORMALIZADO ===
-					NormalizedText =
-						Text.Combine(
-							NormalizedWords,
-							" "
-						)
-				in
-					NormalizedText
-	in
-		Result
+                    // === RECONSTRUYE EL TEXTO NORMALIZADO ===
+                    NormalizedText =
+                        Text.Combine(
+                            NormalizedWords,
+                            " "
+                        )
+                in
+                    // === RETORNA NULO CUANDO EL RESULTADO QUEDA VACÍO ===
+                    if NormalizedText = ""
+                    then null
+                    else NormalizedText
+    in
+        Result
 in
     Source

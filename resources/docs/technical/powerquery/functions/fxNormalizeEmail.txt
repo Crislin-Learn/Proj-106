@@ -1,0 +1,76 @@
+let
+    // fxNormalizeEmail
+    Source = (email as nullable text) as nullable text =>
+    let
+        // ============================================================
+        // PARÁMETROS DE NORMALIZACIÓN
+        // ============================================================
+
+        // === EQUIVALENCIAS ASCII DE CARACTERES ACENTUADOS (YA EN MINÚSCULA) ===
+        DiacriticMap =
+            {
+                {"á", "a"}, {"à", "a"}, {"ä", "a"}, {"â", "a"},
+                {"é", "e"}, {"è", "e"}, {"ë", "e"}, {"ê", "e"},
+                {"í", "i"}, {"ì", "i"}, {"ï", "i"}, {"î", "i"},
+                {"ó", "o"}, {"ò", "o"}, {"ö", "o"}, {"ô", "o"},
+                {"ú", "u"}, {"ù", "u"}, {"ü", "u"}, {"û", "u"},
+                {"ñ", "n"}, {"ç", "c"}
+            },
+
+        // === CARACTERES PERMITIDOS EN UN CORREO CORPORATIVO ===
+        AllowedChars =
+            {"a".."z", "0".."9", ".", "_", "-", "+", "@"},
+
+        // ============================================================
+        // VALIDACIÓN DEL VALOR
+        // ============================================================
+
+        // === RETORNA NULO CUANDO EL VALOR ES NULO ===
+        Result =
+            if email = null then
+                null
+            else
+                let
+                    // === CONVIERTE A MINÚSCULA ===
+                    LowerEmail =
+                        Text.Lower(email),
+
+                    // === REEMPLAZA ACENTOS, Ñ, Ü Y Ç POR SU EQUIVALENTE ASCII ===
+                    NoDiacriticsEmail =
+                        List.Accumulate(
+                            DiacriticMap,
+                            LowerEmail,
+                            (state, pair) =>
+                                Text.Replace(
+                                    state,
+                                    pair{0},
+                                    pair{1}
+                                )
+                        ),
+
+                    // === CONSERVA SOLO LOS CARACTERES PERMITIDOS ===
+                    CleanedEmail =
+                        Text.Select(
+                            NoDiacriticsEmail,
+                            AllowedChars
+                        ),
+
+                    // === VALIDA QUE EXISTA UNA SOLA ARROBA CON TEXTO A AMBOS LADOS ===
+                    Parts =
+                        Text.Split(
+                            CleanedEmail,
+                            "@"
+                        ),
+                    IsValid =
+                        List.Count(Parts) = 2
+                        and Parts{0} <> ""
+                        and Parts{1} <> ""
+                in
+                    // === RETORNA NULO CUANDO EL CORREO NO ES VÁLIDO ===
+                    if IsValid
+                    then CleanedEmail
+                    else null
+    in
+        Result
+in
+    Source

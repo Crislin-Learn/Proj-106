@@ -1,5 +1,5 @@
 let
-    // === FUENTE: StgTicketsTI ===
+    // === FUENTE: StgEmployee ===
     Source = StgTicketsTI,
 
     // === FILTRA REGISTROS VÁLIDOS ===
@@ -15,7 +15,7 @@ let
         FilteredRows,
         {
             {"TicketID", type text},
-            {"Date", type date},
+            {"Date", type date, "es-US"},
             {"EmployeeID", Int64.Type},
             {"AgentID", Int64.Type},
             {"Category", type text},
